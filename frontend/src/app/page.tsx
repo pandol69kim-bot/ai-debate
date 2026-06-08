@@ -6,6 +6,7 @@ import { Swords, Zap, Brain, ChevronRight, CheckSquare, Square, Lock } from "luc
 import { clsx } from "clsx";
 import { startDebate, getModels } from "@/lib/api/client";
 import { useDebateStore } from "@/lib/store/debateStore";
+import { useAuthStore } from "@/lib/store/authStore";
 import { PROVIDER_COLORS, type AIModel } from "@/types";
 
 const PROVIDER_DESC: Record<string, string> = {
@@ -26,6 +27,7 @@ const EXAMPLE_TOPICS = [
 export default function HomePage() {
   const router = useRouter();
   const { startDebate: initDebate } = useDebateStore();
+  const { isLoggedIn } = useAuthStore();
 
   const [models, setModels] = useState<AIModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
@@ -66,6 +68,10 @@ export default function HomePage() {
   };
 
   const handleStart = async () => {
+    if (!isLoggedIn) {
+      router.push("/auth/login");
+      return;
+    }
     if (!topic.trim()) {
       setError("토론 주제를 입력해주세요.");
       return;
@@ -83,8 +89,14 @@ export default function HomePage() {
       initDebate(conversation_id, topic, selectedModels);
       router.push(`/debate/${conversation_id}`);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "토론을 시작할 수 없습니다.";
-      setError(msg);
+      const axiosErr = e as { response?: { status?: number } };
+      if (axiosErr?.response?.status === 401) {
+        setError("세션이 만료되었습니다. 다시 로그인해주세요.");
+        router.push("/auth/login");
+      } else {
+        const msg = e instanceof Error ? e.message : "토론을 시작할 수 없습니다.";
+        setError(msg);
+      }
       setIsLoading(false);
     }
   };
@@ -234,6 +246,20 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Auth banner — 비로그인 시 */}
+        {!isLoggedIn && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-arena-accent/10 border border-arena-accent/30 text-arena-accent text-sm">
+            <Lock className="w-4 h-4 flex-shrink-0" />
+            토론에 참여하려면 로그인이 필요합니다.
+            <button
+              onClick={() => router.push("/auth/login")}
+              className="ml-auto text-xs font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity whitespace-nowrap"
+            >
+              로그인 →
+            </button>
+          </div>
+        )}
+
         {/* Error */}
         {error && (
           <div className="px-4 py-3 rounded-xl bg-red-900/30 border border-red-800 text-red-400 text-sm">
@@ -242,28 +268,43 @@ export default function HomePage() {
         )}
 
         {/* CTA */}
-        <button
-          onClick={handleStart}
-          disabled={isLoading || !topic.trim() || modelsLoading}
-          className={clsx(
-            "w-full py-4 rounded-2xl font-bold text-white text-lg flex items-center justify-center gap-3 transition-all",
-            "bg-gradient-to-r from-arena-accent to-indigo-600 hover:from-indigo-600 hover:to-arena-accent",
-            "glow-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:glow-none"
-          )}
-        >
-          {isLoading ? (
-            <>
-              <Brain className="w-5 h-5 animate-pulse" />
-              토론 시작 중...
-            </>
-          ) : (
-            <>
-              <Swords className="w-5 h-5" />
-              토론 시작
-              <ChevronRight className="w-5 h-5" />
-            </>
-          )}
-        </button>
+        {isLoggedIn ? (
+          <button
+            onClick={handleStart}
+            disabled={isLoading || !topic.trim() || modelsLoading}
+            className={clsx(
+              "w-full py-4 rounded-2xl font-bold text-white text-lg flex items-center justify-center gap-3 transition-all",
+              "bg-gradient-to-r from-arena-accent to-indigo-600 hover:from-indigo-600 hover:to-arena-accent",
+              "glow-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:glow-none"
+            )}
+          >
+            {isLoading ? (
+              <>
+                <Brain className="w-5 h-5 animate-pulse" />
+                토론 시작 중...
+              </>
+            ) : (
+              <>
+                <Swords className="w-5 h-5" />
+                토론 시작
+                <ChevronRight className="w-5 h-5" />
+              </>
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={() => router.push("/auth/login")}
+            className={clsx(
+              "w-full py-4 rounded-2xl font-bold text-white text-lg flex items-center justify-center gap-3 transition-all",
+              "bg-gradient-to-r from-arena-accent to-indigo-600 hover:from-indigo-600 hover:to-arena-accent",
+              "glow-accent"
+            )}
+          >
+            <Lock className="w-5 h-5" />
+            로그인하고 토론 시작
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        )}
       </div>
     </div>
   );

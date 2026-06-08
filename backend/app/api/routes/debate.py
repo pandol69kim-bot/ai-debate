@@ -232,7 +232,10 @@ async def start_debate(
     body: DebateStartRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    authorization: Optional[str] = Header(default=None),
 ):
+    await _get_user_from_token(authorization, db)
+
     conv = Conversation(
         id=uuid.uuid4(),
         topic=body.topic,
