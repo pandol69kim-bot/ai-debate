@@ -51,7 +51,10 @@ class GeminiAdapter(BaseAIAdapter):
         start = time.time()
         try:
             system_instruction, history, prompt = self._convert_messages(messages)
-            generation_config = genai.types.GenerationConfig(max_output_tokens=max_tokens)
+            generation_config = genai.types.GenerationConfig(
+                max_output_tokens=max_tokens,
+                temperature=0.7,
+            )
 
             model_kwargs = {"model_name": self._model_name, "generation_config": generation_config}
             if system_instruction:
@@ -61,12 +64,36 @@ class GeminiAdapter(BaseAIAdapter):
             chat = model.start_chat(history=history)
             response = await chat.send_message_async(prompt or "")
 
+            # 토큰 한도 초과로 잘린 경우 이어서 생성
+            full_text = response.text
+            candidate = response.candidates[0] if response.candidates else None
+            if candidate and str(candidate.finish_reason) in ("FinishReason.MAX_TOKENS", "2", "MAX_TOKENS"):
+                continuation_config = genai.types.GenerationConfig(
+                    max_output_tokens=max_tokens,
+                    temperature=0.7,
+                )
+                cont_kwargs = {"model_name": self._model_name, "generation_config": continuation_config}
+                if system_instruction:
+                    cont_kwargs["system_instruction"] = system_instruction
+                cont_model = genai.GenerativeModel(**cont_kwargs)
+                cont_chat = cont_model.start_chat(history=[
+                    *history,
+                    {"role": "user", "parts": [prompt or ""]},
+                    {"role": "model", "parts": [full_text]},
+                ])
+                cont_response = await cont_chat.send_message_async("이어서 계속 작성해주세요.")
+                full_text = full_text + cont_response.text
+
             latency = int((time.time() - start) * 1000)
+            tokens_used = 0
+            if hasattr(response, "usage_metadata") and response.usage_metadata:
+                tokens_used = getattr(response.usage_metadata, "total_token_count", 0)
+
             return AIResponse(
                 provider=self.provider,
                 display_name=self.display_name,
-                content=response.text,
-                tokens_used=0,
+                content=full_text,
+                tokens_used=tokens_used,
                 latency_ms=latency,
             )
         except Exception as e:
@@ -87,7 +114,10 @@ class GeminiAdapter(BaseAIAdapter):
 
         try:
             system_instruction, history, prompt = self._convert_messages(messages)
-            generation_config = genai.types.GenerationConfig(max_output_tokens=max_tokens)
+            generation_config = genai.types.GenerationConfig(
+                max_output_tokens=max_tokens,
+                temperature=0.7,
+            )
             model_kwargs = {"model_name": self._model_name, "generation_config": generation_config}
             if system_instruction:
                 model_kwargs["system_instruction"] = system_instruction

@@ -32,8 +32,8 @@ class Settings(BaseSettings):
 
     # Debate Settings
     MAX_DEBATE_ROUNDS: int = 3
-    MAX_TOKENS_PER_RESPONSE: int = 1500
-    DEBATE_TIMEOUT_SECONDS: int = 120
+    MAX_TOKENS_PER_RESPONSE: int = 3000
+    DEBATE_TIMEOUT_SECONDS: int = 180
 
     # CORS
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://frontend:3000"]
