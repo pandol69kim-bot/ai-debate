@@ -21,7 +21,9 @@ echo Now start backend and frontend manually:
 echo.
 echo  [Backend]
 echo   cd backend
-echo   pip install -r requirements.txt
+echo   py -3.11 -m venv venv       (first time only)
+echo   .\\venv\\Scripts\\activate
+echo   python -m pip install -r requirements.txt
 echo   uvicorn app.main:app --reload --port 8000
 echo.
 echo  [Frontend]

@@ -7,12 +7,12 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     DEBUG: bool = False
 
-    # Database
-    DATABASE_URL: str = "postgresql+asyncpg://arena:arena_pass@postgres:5432/arena_db"
-    DATABASE_URL_SYNC: str = "postgresql://arena:arena_pass@postgres:5432/arena_db"
+    # Database (default: localhost for local dev; docker-compose overrides with service name)
+    DATABASE_URL: str = "postgresql+asyncpg://arena:arena_pass@localhost:5432/arena_db"
+    DATABASE_URL_SYNC: str = "postgresql://arena:arena_pass@localhost:5432/arena_db"
 
-    # Redis
-    REDIS_URL: str = "redis://redis:6379/0"
+    # Redis (default: localhost for local dev; docker-compose overrides with service name)
+    REDIS_URL: str = "redis://localhost:6379/0"
 
     # Security
     SECRET_KEY: str = "change-me-in-production-secret-key-at-least-32-chars"
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # AI Models
     OPENAI_MODEL: str = "gpt-4o"
     ANTHROPIC_MODEL: str = "claude-opus-4-8"
-    GEMINI_MODEL: str = "gemini-2.0-flash-exp"
+    GEMINI_MODEL: str = "gemini-2.0-flash"
     JUDGE_MODEL: str = "gpt-4o"
 
     # Debate Settings
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://frontend:3000"]
 
     class Config:
-        env_file = ".env"
+        env_file = (".env", "../.env")  # backend/ 또는 프로젝트 루트 어느 위치에서 실행해도 로드
         extra = "ignore"
 
 
