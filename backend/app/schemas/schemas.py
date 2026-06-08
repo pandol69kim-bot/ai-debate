@@ -39,6 +39,7 @@ class AIModelOut(BaseModel):
     model_name: str
     display_name: str
     is_active: bool
+    api_key_configured: bool = True
 
     model_config = {"from_attributes": True}
 

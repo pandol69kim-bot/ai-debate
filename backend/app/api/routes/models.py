@@ -8,14 +8,32 @@ from app.db.session import get_db
 from app.schemas.schemas import MultiQueryRequest, MultiQueryResponse, ModelResponse, AIModelOut
 from app.adapters.registry import get_adapters_by_providers
 from app.models.db_models import AIModel
+from app.core.config import settings
 
 router = APIRouter(prefix="/models", tags=["models"])
+
+_API_KEY_MAP: dict[str, str] = {
+    "gpt": settings.OPENAI_API_KEY,
+    "claude": settings.ANTHROPIC_API_KEY,
+    "gemini": settings.GOOGLE_API_KEY,
+}
 
 
 @router.get("/", response_model=list[AIModelOut])
 async def list_models(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(AIModel).where(AIModel.is_active == True))
-    return result.scalars().all()
+    models = result.scalars().all()
+    return [
+        AIModelOut(
+            id=m.id,
+            provider=m.provider,
+            model_name=m.model_name,
+            display_name=m.display_name,
+            is_active=m.is_active,
+            api_key_configured=bool(_API_KEY_MAP.get(m.provider, "")),
+        )
+        for m in models
+    ]
 
 
 @router.post("/query", response_model=MultiQueryResponse)

@@ -1,8 +1,77 @@
 import time
 from typing import AsyncGenerator
 import google.generativeai as genai
+from google.generativeai.types import GenerationConfig, HarmCategory, HarmBlockThreshold
 from app.adapters.base import BaseAIAdapter, AIResponse
 from app.core.config import settings
+
+# Gemini finish_reason 값 (SDK 버전마다 다를 수 있어 모두 커버)
+_MAX_TOKENS_REASONS = {"MAX_TOKENS", "2", "FinishReason.MAX_TOKENS", 2}
+
+# 안전 필터를 최소화해 긴 한국어 텍스트가 차단되는 상황 방지
+_SAFETY_SETTINGS = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+}
+
+
+def _extract_text(response) -> str:
+    """candidates[0].content.parts 에서 텍스트를 명시적으로 추출.
+    response.text 는 안전 필터 차단·candidates 없음 등의 경우 ValueError를 던지므로 직접 파싱."""
+    try:
+        if not response.candidates:
+            return ""
+        parts = response.candidates[0].content.parts
+        return "".join(p.text for p in parts if hasattr(p, "text") and p.text)
+    except Exception:
+        # 최후 수단: SDK 기본 프로퍼티
+        try:
+            return response.text or ""
+        except Exception:
+            return ""
+
+
+def _finish_reason(response) -> str:
+    try:
+        return str(response.candidates[0].finish_reason)
+    except Exception:
+        return ""
+
+
+def _build_model(system_instruction: str | None, max_tokens: int) -> genai.GenerativeModel:
+    config = GenerationConfig(
+        max_output_tokens=max_tokens,
+        temperature=0.7,
+    )
+    kwargs: dict = {
+        "model_name": settings.GEMINI_MODEL,
+        "generation_config": config,
+        "safety_settings": _SAFETY_SETTINGS,
+    }
+    if system_instruction:
+        kwargs["system_instruction"] = system_instruction
+    return genai.GenerativeModel(**kwargs)
+
+
+def _to_contents(messages: list[dict]) -> tuple[str | None, list[dict]]:
+    """OpenAI 형식 messages → Gemini contents + system_instruction 분리."""
+    system_parts: list[str] = []
+    contents: list[dict] = []
+
+    for msg in messages:
+        role = msg["role"]
+        text = msg["content"]
+        if role == "system":
+            system_parts.append(text)
+        elif role == "user":
+            contents.append({"role": "user", "parts": [{"text": text}]})
+        elif role == "assistant":
+            contents.append({"role": "model", "parts": [{"text": text}]})
+
+    system_instruction = "\n".join(system_parts) if system_parts else None
+    return system_instruction, contents
 
 
 class GeminiAdapter(BaseAIAdapter):
@@ -12,30 +81,6 @@ class GeminiAdapter(BaseAIAdapter):
     def __init__(self):
         if settings.GOOGLE_API_KEY:
             genai.configure(api_key=settings.GOOGLE_API_KEY)
-        self._model_name = settings.GEMINI_MODEL
-
-    def _convert_messages(self, messages: list[dict]) -> tuple[str, list[dict]]:
-        system_parts = []
-        history = []
-        last_user = None
-
-        for msg in messages:
-            if msg["role"] == "system":
-                system_parts.append(msg["content"])
-            elif msg["role"] == "user":
-                last_user = msg["content"]
-                if history and history[-1]["role"] == "user":
-                    history.append({"role": "model", "parts": ["[continued]"]})
-                history.append({"role": "user", "parts": [msg["content"]]})
-            elif msg["role"] == "assistant":
-                history.append({"role": "model", "parts": [msg["content"]]})
-
-        system_instruction = " ".join(system_parts) if system_parts else None
-        # Remove last user message from history (it goes as the prompt)
-        if history and history[-1]["role"] == "user":
-            history = history[:-1]
-
-        return system_instruction, history, last_user
 
     async def generate(self, messages: list[dict], max_tokens: int = 1000) -> AIResponse:
         if not settings.GOOGLE_API_KEY:
@@ -50,44 +95,31 @@ class GeminiAdapter(BaseAIAdapter):
 
         start = time.time()
         try:
-            system_instruction, history, prompt = self._convert_messages(messages)
-            generation_config = genai.types.GenerationConfig(
-                max_output_tokens=max_tokens,
-                temperature=0.7,
-            )
+            system_instruction, contents = _to_contents(messages)
+            model = _build_model(system_instruction, max_tokens)
 
-            model_kwargs = {"model_name": self._model_name, "generation_config": generation_config}
-            if system_instruction:
-                model_kwargs["system_instruction"] = system_instruction
+            # chat API 대신 generate_content_async 직접 호출 — 더 안정적인 텍스트 추출
+            response = await model.generate_content_async(contents)
+            full_text = _extract_text(response)
 
-            model = genai.GenerativeModel(**model_kwargs)
-            chat = model.start_chat(history=history)
-            response = await chat.send_message_async(prompt or "")
-
-            # 토큰 한도 초과로 잘린 경우 이어서 생성
-            full_text = response.text
-            candidate = response.candidates[0] if response.candidates else None
-            if candidate and str(candidate.finish_reason) in ("FinishReason.MAX_TOKENS", "2", "MAX_TOKENS"):
-                continuation_config = genai.types.GenerationConfig(
-                    max_output_tokens=max_tokens,
-                    temperature=0.7,
-                )
-                cont_kwargs = {"model_name": self._model_name, "generation_config": continuation_config}
-                if system_instruction:
-                    cont_kwargs["system_instruction"] = system_instruction
-                cont_model = genai.GenerativeModel(**cont_kwargs)
-                cont_chat = cont_model.start_chat(history=[
-                    *history,
-                    {"role": "user", "parts": [prompt or ""]},
-                    {"role": "model", "parts": [full_text]},
-                ])
-                cont_response = await cont_chat.send_message_async("이어서 계속 작성해주세요.")
-                full_text = full_text + cont_response.text
+            # 여전히 MAX_TOKENS로 잘린 경우 → 이어쓰기 1회
+            if _finish_reason(response) in _MAX_TOKENS_REASONS and full_text:
+                cont_contents = contents + [
+                    {"role": "model", "parts": [{"text": full_text}]},
+                    {"role": "user",  "parts": [{"text": "이어서 계속 작성해주세요."}]},
+                ]
+                cont_response = await model.generate_content_async(cont_contents)
+                cont_text = _extract_text(cont_response)
+                if cont_text:
+                    full_text = full_text + cont_text
 
             latency = int((time.time() - start) * 1000)
             tokens_used = 0
-            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                tokens_used = getattr(response.usage_metadata, "total_token_count", 0)
+            try:
+                if response.usage_metadata:
+                    tokens_used = response.usage_metadata.total_token_count or 0
+            except Exception:
+                pass
 
             return AIResponse(
                 provider=self.provider,
@@ -113,21 +145,16 @@ class GeminiAdapter(BaseAIAdapter):
             return
 
         try:
-            system_instruction, history, prompt = self._convert_messages(messages)
-            generation_config = genai.types.GenerationConfig(
-                max_output_tokens=max_tokens,
-                temperature=0.7,
-            )
-            model_kwargs = {"model_name": self._model_name, "generation_config": generation_config}
-            if system_instruction:
-                model_kwargs["system_instruction"] = system_instruction
-
-            model = genai.GenerativeModel(**model_kwargs)
-            chat = model.start_chat(history=history)
-            response = await chat.send_message_async(prompt or "", stream=True)
+            system_instruction, contents = _to_contents(messages)
+            model = _build_model(system_instruction, max_tokens)
+            response = await model.generate_content_async(contents, stream=True)
 
             async for chunk in response:
-                if chunk.text:
-                    yield chunk.text
+                try:
+                    text = _extract_text(chunk)
+                    if text:
+                        yield text
+                except Exception:
+                    pass
         except Exception as e:
             yield f"[Gemini error: {str(e)}]"

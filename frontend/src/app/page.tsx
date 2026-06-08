@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Swords, Zap, Brain, ChevronRight, CheckSquare, Square } from "lucide-react";
+import { Swords, Zap, Brain, ChevronRight, CheckSquare, Square, Lock } from "lucide-react";
 import { clsx } from "clsx";
 import { startDebate, getModels } from "@/lib/api/client";
 import { useDebateStore } from "@/lib/store/debateStore";
@@ -42,17 +42,17 @@ export default function HomePage() {
         const active = res.data;
         setModels(active);
         // Default: select all active models
-        setSelectedModels(active.map((m) => m.provider));
+        setSelectedModels(active.filter((m: AIModel) => m.api_key_configured).map((m: AIModel) => m.provider));
       })
       .catch(() => {
         // Fallback to hardcoded list if API is unreachable
         const fallback: AIModel[] = [
-          { id: "1", provider: "gpt", model_name: "gpt-4o", display_name: "GPT-4o", is_active: true },
-          { id: "2", provider: "claude", model_name: "claude-opus-4-8", display_name: "Claude Opus", is_active: true },
-          { id: "3", provider: "gemini", model_name: "gemini-2.0-flash", display_name: "Gemini 2.0", is_active: true },
+          { id: "1", provider: "gpt", model_name: "gpt-4o", display_name: "GPT-4o", is_active: true, api_key_configured: true },
+          { id: "2", provider: "claude", model_name: "claude-opus-4-8", display_name: "Claude Opus", is_active: true, api_key_configured: false },
+          { id: "3", provider: "gemini", model_name: "gemini-2.5-flash", display_name: "Gemini 2.5", is_active: true, api_key_configured: true },
         ];
         setModels(fallback);
-        setSelectedModels(fallback.map((m) => m.provider));
+        setSelectedModels(fallback.filter((m) => m.api_key_configured).map((m) => m.provider));
       })
       .finally(() => setModelsLoading(false));
   }, []);
@@ -159,37 +159,49 @@ export default function HomePage() {
           ) : (
             <div className="grid grid-cols-3 gap-3">
               {models.map((model) => {
-                const selected = selectedModels.includes(model.provider);
+                const unavailable = !model.api_key_configured;
+                const selected = !unavailable && selectedModels.includes(model.provider);
                 const color = PROVIDER_COLORS[model.provider] ?? "#64748b";
                 const desc = PROVIDER_DESC[model.provider] ?? model.model_name;
                 return (
-                  <button
-                    key={model.id}
-                    onClick={() => toggleModel(model.provider)}
-                    className={clsx(
-                      "relative p-4 rounded-xl border-2 text-left transition-all",
-                      selected
-                        ? "border-current bg-current/10"
-                        : "border-arena-border bg-arena-surface hover:border-arena-border/80"
-                    )}
-                    style={selected ? { borderColor: color, color } : {}}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-                        style={{ backgroundColor: color }}
-                      >
-                        {model.display_name[0]}
-                      </div>
-                      {selected ? (
-                        <CheckSquare className="w-4 h-4" style={{ color }} />
-                      ) : (
-                        <Square className="w-4 h-4 text-slate-600" />
+                  <div key={model.id} className="relative">
+                    <button
+                      onClick={() => !unavailable && toggleModel(model.provider)}
+                      disabled={unavailable}
+                      className={clsx(
+                        "w-full p-4 rounded-xl border-2 text-left transition-all",
+                        unavailable
+                          ? "border-arena-border bg-arena-surface cursor-not-allowed"
+                          : selected
+                          ? "border-current bg-current/10"
+                          : "border-arena-border bg-arena-surface hover:border-arena-border/80"
                       )}
-                    </div>
-                    <p className="text-sm font-semibold text-white">{model.display_name}</p>
-                    <p className="text-xs text-slate-500">{desc}</p>
-                  </button>
+                      style={selected ? { borderColor: color, color } : {}}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
+                          style={{ backgroundColor: color }}
+                        >
+                          {model.display_name[0]}
+                        </div>
+                        {selected ? (
+                          <CheckSquare className="w-4 h-4" style={{ color }} />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-600" />
+                        )}
+                      </div>
+                      <p className="text-sm font-semibold text-white">{model.display_name}</p>
+                      <p className="text-xs text-slate-500">{desc}</p>
+                    </button>
+
+                    {unavailable && (
+                      <div className="absolute inset-0 rounded-xl backdrop-blur-[3px] bg-arena-bg/50 flex flex-col items-center justify-center gap-1.5 pointer-events-none">
+                        <Lock className="w-4 h-4 text-slate-400" />
+                        <span className="text-xs font-medium text-slate-400">준비 중</span>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

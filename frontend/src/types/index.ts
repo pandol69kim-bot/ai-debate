@@ -4,6 +4,7 @@ export interface AIModel {
   model_name: string;
   display_name: string;
   is_active: boolean;
+  api_key_configured: boolean;
 }
 
 export interface ModelResponse {

@@ -2,11 +2,12 @@ import uuid
 import asyncio
 import json
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from typing import Optional
 
 from app.db.session import get_db
 from app.schemas.schemas import DebateStartRequest, DebateStartResponse, ConversationOut
@@ -16,6 +17,7 @@ from app.engines.judge_engine import judge_engine
 from app.engines.consensus_engine import consensus_engine
 from app.engines.ranking_engine import ranking_engine
 from app.models.db_models import RankingPeriod
+from app.api.routes.auth import _get_user_from_token
 
 router = APIRouter(prefix="/debate", tags=["debate"])
 
