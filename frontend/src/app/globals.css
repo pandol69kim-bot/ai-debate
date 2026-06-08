@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --card: #1a1a28;
+  --border: #2a2a40;
+  --accent: #6366f1;
+  --text: #e2e8f0;
+  --muted: #64748b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Prose styles for AI responses */
+.prose-arena {
+  @apply text-slate-200 leading-relaxed;
+}
+.prose-arena h1,
+.prose-arena h2,
+.prose-arena h3 {
+  @apply text-white font-semibold mt-4 mb-2;
+}
+.prose-arena p {
+  @apply mb-3;
+}
+.prose-arena ul,
+.prose-arena ol {
+  @apply pl-5 mb-3 space-y-1;
+}
+.prose-arena li {
+  @apply text-slate-300;
+}
+.prose-arena code {
+  @apply bg-arena-surface px-1.5 py-0.5 rounded text-arena-accent font-mono text-sm;
+}
+.prose-arena pre {
+  @apply bg-arena-surface p-4 rounded-lg overflow-x-auto mb-3;
+}
+.prose-arena blockquote {
+  @apply border-l-4 border-arena-accent pl-4 italic text-slate-400;
+}
+.prose-arena strong {
+  @apply text-white font-semibold;
+}
+
+/* Glow effects */
+.glow-accent {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+}
+.glow-gpt {
+  box-shadow: 0 0 20px rgba(16, 163, 127, 0.3);
+}
+.glow-claude {
+  box-shadow: 0 0 20px rgba(217, 119, 6, 0.3);
+}
+.glow-gemini {
+  box-shadow: 0 0 20px rgba(66, 133, 244, 0.3);
+}
+
+/* Typing indicator */
+.typing-dot {
+  @apply w-1.5 h-1.5 bg-current rounded-full animate-bounce;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.2s;
+}

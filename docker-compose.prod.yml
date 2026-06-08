@@ -1,0 +1,37 @@
+version: "3.9"
+
+# Production override - use with:
+# docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:-arena}
+      POSTGRES_DB: ${POSTGRES_DB:-arena_db}
+
+  redis:
+    restart: always
+
+  backend:
+    restart: always
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes: []  # No volume mount in prod — use built image
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    environment:
+      DEBUG: "false"
+
+  frontend:
+    restart: always
+
+  nginx:
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro  # Mount SSL certs here
