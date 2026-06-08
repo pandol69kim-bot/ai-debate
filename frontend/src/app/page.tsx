@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Swords, Zap, Brain, ChevronRight, CheckSquare, Square } from "lucide-react";
 import { clsx } from "clsx";
-import { startDebate } from "@/lib/api/client";
+import { startDebate, getModels } from "@/lib/api/client";
 import { useDebateStore } from "@/lib/store/debateStore";
-import { PROVIDER_COLORS } from "@/types";
+import { PROVIDER_COLORS, type AIModel } from "@/types";
 
-const MODELS = [
-  { id: "gpt", name: "GPT-4o", provider: "OpenAI", color: "#10a37f", desc: "최첨단 추론 & 코딩" },
-  { id: "claude", name: "Claude Opus", provider: "Anthropic", color: "#d97706", desc: "심층 분석 & 글쓰기" },
-  { id: "gemini", name: "Gemini 2.0", provider: "Google", color: "#4285f4", desc: "멀티모달 & 검색" },
-];
+const PROVIDER_DESC: Record<string, string> = {
+  gpt: "최첨단 추론 & 코딩",
+  claude: "심층 분석 & 글쓰기",
+  gemini: "멀티모달 & 검색",
+};
 
 const ROUND_OPTIONS = [1, 2, 3];
 
@@ -26,17 +26,42 @@ const EXAMPLE_TOPICS = [
 export default function HomePage() {
   const router = useRouter();
   const { startDebate: initDebate } = useDebateStore();
+
+  const [models, setModels] = useState<AIModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
+
   const [topic, setTopic] = useState("");
-  const [selectedModels, setSelectedModels] = useState(["gpt", "claude", "gemini"]);
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [numRounds, setNumRounds] = useState(3);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const toggleModel = (id: string) => {
+  useEffect(() => {
+    getModels()
+      .then((res) => {
+        const active = res.data;
+        setModels(active);
+        // Default: select all active models
+        setSelectedModels(active.map((m) => m.provider));
+      })
+      .catch(() => {
+        // Fallback to hardcoded list if API is unreachable
+        const fallback: AIModel[] = [
+          { id: "1", provider: "gpt", model_name: "gpt-4o", display_name: "GPT-4o", is_active: true },
+          { id: "2", provider: "claude", model_name: "claude-opus-4-8", display_name: "Claude Opus", is_active: true },
+          { id: "3", provider: "gemini", model_name: "gemini-2.0-flash", display_name: "Gemini 2.0", is_active: true },
+        ];
+        setModels(fallback);
+        setSelectedModels(fallback.map((m) => m.provider));
+      })
+      .finally(() => setModelsLoading(false));
+  }, []);
+
+  const toggleModel = (provider: string) => {
     setSelectedModels((prev) =>
-      prev.includes(id)
-        ? prev.length > 2 ? prev.filter((m) => m !== id) : prev
-        : [...prev, id]
+      prev.includes(provider)
+        ? prev.length > 2 ? prev.filter((m) => m !== provider) : prev
+        : [...prev, provider]
     );
   };
 
@@ -118,42 +143,57 @@ export default function HomePage() {
         {/* Model Selection */}
         <div className="bg-arena-card rounded-2xl border border-arena-border p-6">
           <label className="block text-sm font-semibold text-slate-300 mb-4">
-            참가 AI 선택 <span className="text-slate-600 font-normal">(최소 2개)</span>
+            참가 AI 선택{" "}
+            <span className="text-slate-600 font-normal">(최소 2개)</span>
           </label>
-          <div className="grid grid-cols-3 gap-3">
-            {MODELS.map((model) => {
-              const selected = selectedModels.includes(model.id);
-              return (
-                <button
-                  key={model.id}
-                  onClick={() => toggleModel(model.id)}
-                  className={clsx(
-                    "relative p-4 rounded-xl border-2 text-left transition-all",
-                    selected
-                      ? "border-current bg-current/10"
-                      : "border-arena-border bg-arena-surface hover:border-arena-border/80"
-                  )}
-                  style={selected ? { borderColor: model.color, color: model.color } : {}}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-                      style={{ backgroundColor: model.color }}
-                    >
-                      {model.name[0]}
-                    </div>
-                    {selected ? (
-                      <CheckSquare className="w-4 h-4" style={{ color: model.color }} />
-                    ) : (
-                      <Square className="w-4 h-4 text-slate-600" />
+
+          {modelsLoading ? (
+            <div className="grid grid-cols-3 gap-3">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-24 rounded-xl border border-arena-border bg-arena-surface animate-pulse"
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              {models.map((model) => {
+                const selected = selectedModels.includes(model.provider);
+                const color = PROVIDER_COLORS[model.provider] ?? "#64748b";
+                const desc = PROVIDER_DESC[model.provider] ?? model.model_name;
+                return (
+                  <button
+                    key={model.id}
+                    onClick={() => toggleModel(model.provider)}
+                    className={clsx(
+                      "relative p-4 rounded-xl border-2 text-left transition-all",
+                      selected
+                        ? "border-current bg-current/10"
+                        : "border-arena-border bg-arena-surface hover:border-arena-border/80"
                     )}
-                  </div>
-                  <p className="text-sm font-semibold text-white">{model.name}</p>
-                  <p className="text-xs text-slate-500">{model.desc}</p>
-                </button>
-              );
-            })}
-          </div>
+                    style={selected ? { borderColor: color, color } : {}}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
+                        style={{ backgroundColor: color }}
+                      >
+                        {model.display_name[0]}
+                      </div>
+                      {selected ? (
+                        <CheckSquare className="w-4 h-4" style={{ color }} />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-600" />
+                      )}
+                    </div>
+                    <p className="text-sm font-semibold text-white">{model.display_name}</p>
+                    <p className="text-xs text-slate-500">{desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Round Count */}
@@ -192,7 +232,7 @@ export default function HomePage() {
         {/* CTA */}
         <button
           onClick={handleStart}
-          disabled={isLoading || !topic.trim()}
+          disabled={isLoading || !topic.trim() || modelsLoading}
           className={clsx(
             "w-full py-4 rounded-2xl font-bold text-white text-lg flex items-center justify-center gap-3 transition-all",
             "bg-gradient-to-r from-arena-accent to-indigo-600 hover:from-indigo-600 hover:to-arena-accent",

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Trophy, Zap, LogIn, UserPlus, LogOut, User } from "lucide-react";
+import { Swords, Trophy, Zap, LogIn, UserPlus, LogOut, User, MessageSquare } from "lucide-react";
 import { clsx } from "clsx";
 import { useAuthStore } from "@/lib/store/authStore";
 
 const navLinks = [
   { href: "/", label: "Arena", icon: Swords },
+  { href: "/debates", label: "토론 기록", icon: MessageSquare },
   { href: "/rankings", label: "Rankings", icon: Trophy },
 ];
 

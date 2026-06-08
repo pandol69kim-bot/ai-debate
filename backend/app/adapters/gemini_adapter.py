@@ -7,7 +7,7 @@ from app.core.config import settings
 
 class GeminiAdapter(BaseAIAdapter):
     provider = "gemini"
-    display_name = "Gemini 2.0"
+    display_name = "Gemini 2.5"
 
     def __init__(self):
         if settings.GOOGLE_API_KEY:

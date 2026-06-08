@@ -1,6 +1,7 @@
 import asyncio
 from app.adapters.registry import get_adapters_by_providers
 from app.adapters.base import AIResponse
+from app.core.config import settings
 
 
 ROUND_PROMPTS = {
@@ -25,7 +26,7 @@ class DebateEngine:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": topic},
                 ],
-                max_tokens=800,
+                max_tokens=settings.MAX_TOKENS_PER_RESPONSE,
             )
             for adapter in adapters
         ]
@@ -58,7 +59,7 @@ class DebateEngine:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
                 ],
-                max_tokens=800,
+                max_tokens=settings.MAX_TOKENS_PER_RESPONSE,
             )
             for adapter in adapters
         ]

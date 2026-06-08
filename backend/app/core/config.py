@@ -27,12 +27,12 @@ class Settings(BaseSettings):
     # AI Models
     OPENAI_MODEL: str = "gpt-4o"
     ANTHROPIC_MODEL: str = "claude-opus-4-8"
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
     JUDGE_MODEL: str = "gpt-4o"
 
     # Debate Settings
     MAX_DEBATE_ROUNDS: int = 3
-    MAX_TOKENS_PER_RESPONSE: int = 1000
+    MAX_TOKENS_PER_RESPONSE: int = 1500
     DEBATE_TIMEOUT_SECONDS: int = 120
 
     # CORS

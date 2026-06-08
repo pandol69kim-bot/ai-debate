@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Loader2, CheckCircle2, AlertCircle, Gavel } from "lucide-react";
 import Link from "next/link";
 import { useDebateStore } from "@/lib/store/debateStore";
-import { createDebateStream } from "@/lib/api/client";
+import { createDebateStream, getConversation, getJudgeResult, getConsensus } from "@/lib/api/client";
 import { DebateTimeline } from "@/components/arena/DebateTimeline";
 import { JudgePanel } from "@/components/arena/JudgePanel";
 import { ConsensusReport } from "@/components/arena/ConsensusReport";
 import type { SSEEvent } from "@/types";
 
 const STATUS_LABELS = {
-  idle: "",
+  idle: "불러오는 중...",
   connecting: "연결 중...",
   running: "토론 진행 중",
   judging: "Judge AI 평가 중",
@@ -24,11 +24,49 @@ export default function DebatePage() {
   const { id } = useParams<{ id: string }>();
   const store = useDebateStore();
   const esRef = useRef<EventSource | null>(null);
-  const hasConnected = useRef(false);
+  const [restLoading, setRestLoading] = useState(true);
 
+  // 1) 마운트 시 REST API로 기존 데이터 먼저 확인
   useEffect(() => {
-    if (!id || hasConnected.current) return;
-    hasConnected.current = true;
+    if (!id) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const convRes = await getConversation(id);
+        const conv = convRes.data;
+        if (cancelled) return;
+
+        if (conv.status === "done" || conv.status === "failed") {
+          // 완료된 토론 — REST에서 judge/consensus도 로드
+          const [judgeRes, consensusRes] = await Promise.allSettled([
+            getJudgeResult(id),
+            getConsensus(id),
+          ]);
+          const judge = judgeRes.status === "fulfilled" ? judgeRes.value.data : null;
+          const consensus = consensusRes.status === "fulfilled" ? consensusRes.value.data : null;
+          useDebateStore.getState().loadFromRest(conv, judge, consensus);
+          setRestLoading(false);
+          return; // SSE 연결 불필요
+        }
+
+        // 진행 중인 토론 — store에 topic만 먼저 세팅 후 SSE로 이어받음
+        useDebateStore.getState().setTopic(conv.topic);
+      } catch {
+        // 404 또는 네트워크 오류: SSE로 fallback
+      } finally {
+        if (!cancelled) setRestLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [id]);
+
+  // 2) 완료된 토론이 아닐 때만 SSE 연결
+  useEffect(() => {
+    if (!id || restLoading) return;
+    const currentStatus = useDebateStore.getState().status;
+    if (currentStatus === "done" || currentStatus === "error") return;
 
     const es = createDebateStream(id);
     esRef.current = es;
@@ -36,32 +74,43 @@ export default function DebatePage() {
     es.onmessage = (e) => {
       try {
         const event = JSON.parse(e.data) as SSEEvent;
-        store.handleSSEEvent(event);
+        useDebateStore.getState().handleSSEEvent(event);
       } catch {}
     };
 
-    es.onerror = () => {
-      es.close();
-    };
+    es.onerror = () => { es.close(); };
 
     return () => {
       es.close();
       esRef.current = null;
     };
-  }, [id]);
+  }, [id, restLoading]);
 
-  const numRounds = store.status === "idle" ? 3 : Math.max(3, store.currentRound);
+  const numRounds = store.rounds.length > 0
+    ? Math.max(...store.rounds.map((r) => r.round_no))
+    : store.currentRound || 3;
+
+  if (restLoading) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 text-arena-accent animate-spin mx-auto mb-3" />
+          <p className="text-slate-400 text-sm">토론 데이터 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100vh-4rem)] max-w-5xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
         <Link
-          href="/"
+          href="/debates"
           className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-300 transition-colors text-sm mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
-          새 토론
+          토론 목록
         </Link>
 
         <div className="flex items-start justify-between gap-4">
@@ -87,8 +136,7 @@ export default function DebatePage() {
 
       {/* Content */}
       <div className="space-y-8">
-        {/* Debate Timeline */}
-        {(store.status !== "idle") && (
+        {store.rounds.length > 0 && (
           <section>
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               토론 진행
@@ -105,7 +153,6 @@ export default function DebatePage() {
           </section>
         )}
 
-        {/* Judge Panel */}
         {store.judge && (
           <section>
             <JudgePanel
@@ -116,7 +163,6 @@ export default function DebatePage() {
           </section>
         )}
 
-        {/* Consensus Report */}
         {store.consensus && (
           <section>
             <ConsensusReport
@@ -127,7 +173,6 @@ export default function DebatePage() {
           </section>
         )}
 
-        {/* Error */}
         {store.status === "error" && (
           <div className="flex items-center gap-3 p-5 rounded-xl bg-red-900/20 border border-red-800 text-red-400">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -135,8 +180,7 @@ export default function DebatePage() {
           </div>
         )}
 
-        {/* Connecting */}
-        {store.status === "connecting" && (
+        {(store.status === "connecting" || (store.status === "running" && store.rounds.length === 0)) && (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <Loader2 className="w-12 h-12 text-arena-accent animate-spin mx-auto mb-4" />
@@ -150,7 +194,7 @@ export default function DebatePage() {
 }
 
 function StatusIndicator({ status }: { status: string }) {
-  const colors = {
+  const colors: Record<string, string> = {
     running: "text-arena-accent",
     judging: "text-amber-400",
     done: "text-green-400",
@@ -158,46 +202,33 @@ function StatusIndicator({ status }: { status: string }) {
     connecting: "text-slate-400",
     idle: "text-slate-500",
   };
-
-  const icons = {
+  const icons: Record<string, React.ReactNode> = {
     running: <Loader2 className="w-3.5 h-3.5 animate-spin" />,
     judging: <Loader2 className="w-3.5 h-3.5 animate-spin" />,
     done: <CheckCircle2 className="w-3.5 h-3.5" />,
     error: <AlertCircle className="w-3.5 h-3.5" />,
     connecting: <Loader2 className="w-3.5 h-3.5 animate-spin" />,
-    idle: null,
+    idle: <Loader2 className="w-3.5 h-3.5 animate-spin" />,
   };
 
   return (
-    <span className={`flex items-center gap-1.5 ${colors[status as keyof typeof colors] || "text-slate-500"}`}>
-      {icons[status as keyof typeof icons]}
+    <span className={`flex items-center gap-1.5 ${colors[status] ?? "text-slate-500"}`}>
+      {icons[status]}
       {STATUS_LABELS[status as keyof typeof STATUS_LABELS]}
     </span>
   );
 }
 
 function Step({
-  done,
-  active,
-  label,
-  icon,
+  done, active, label, icon,
 }: {
-  done: boolean;
-  active: boolean;
-  label: string;
-  icon?: React.ReactNode;
+  done: boolean; active: boolean; label: string; icon?: React.ReactNode;
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <div
-        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all ${
-          done
-            ? "bg-green-500 text-white"
-            : active
-            ? "bg-arena-accent text-white animate-pulse"
-            : "bg-arena-border text-slate-600"
-        }`}
-      >
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all ${
+        done ? "bg-green-500 text-white" : active ? "bg-arena-accent text-white animate-pulse" : "bg-arena-border text-slate-600"
+      }`}>
         {icon || (done ? "✓" : "")}
       </div>
       <span className={`text-xs font-medium ${done ? "text-green-400" : active ? "text-arena-accent" : "text-slate-600"}`}>

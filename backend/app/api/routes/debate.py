@@ -190,6 +190,41 @@ async def _run_debate_background(conversation_id: str, topic: str, providers: li
             _debate_progress[conversation_id].append({"type": "error", "message": str(e)})
 
 
+@router.get("/", response_model=list[ConversationOut])
+async def list_debates(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Conversation)
+        .options(selectinload(Conversation.debate_rounds).selectinload(DebateRound.model))
+        .order_by(Conversation.created_at.desc())
+        .limit(50)
+    )
+    convs = result.scalars().all()
+    output = []
+    for conv in convs:
+        rounds_out = []
+        for dr in conv.debate_rounds:
+            rounds_out.append({
+                "id": dr.id,
+                "round_no": dr.round_no,
+                "model_id": dr.model_id,
+                "provider": dr.model.provider,
+                "display_name": dr.model.display_name,
+                "content": dr.content,
+                "latency_ms": dr.latency_ms,
+                "created_at": dr.created_at,
+            })
+        output.append({
+            "id": conv.id,
+            "topic": conv.topic,
+            "status": conv.status,
+            "selected_models": conv.selected_models,
+            "created_at": conv.created_at,
+            "completed_at": conv.completed_at,
+            "debate_rounds": rounds_out,
+        })
+    return output
+
+
 @router.post("/start", response_model=DebateStartResponse)
 async def start_debate(
     body: DebateStartRequest,

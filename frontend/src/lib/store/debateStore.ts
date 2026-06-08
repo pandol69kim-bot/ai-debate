@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { SSEEvent, ModelScore } from "@/types";
+import type { SSEEvent, ModelScore, Conversation, JudgeResult, ConsensusResult } from "@/types";
 
 interface DebateRoundEntry {
   round_no: number;
@@ -35,6 +35,7 @@ interface DebateState {
   setSelectedModels: (models: string[]) => void;
   startDebate: (conversationId: string, topic: string, models: string[]) => void;
   handleSSEEvent: (event: SSEEvent) => void;
+  loadFromRest: (conv: Conversation, judge: JudgeResult | null, consensus: ConsensusResult | null) => void;
   reset: () => void;
 }
 
@@ -120,8 +121,40 @@ export const useDebateStore = create<DebateState>((set) => ({
       case "error":
         set({ status: "error", errorMessage: event.message });
         break;
+
+      case "timeout":
+        set({ status: "error", errorMessage: "토론 응답 시간이 초과되었습니다." });
+        break;
     }
   },
+
+  loadFromRest: (conv: Conversation, judge: JudgeResult | null, consensus: ConsensusResult | null) =>
+    set({
+      conversationId: conv.id,
+      topic: conv.topic,
+      selectedModels: conv.selected_models,
+      status: conv.status === "done" ? "done"
+        : conv.status === "failed" ? "error"
+        : conv.status === "judging" ? "judging"
+        : "running",
+      rounds: conv.debate_rounds.map((dr) => ({
+        round_no: dr.round_no,
+        provider: dr.provider,
+        display_name: dr.display_name,
+        content: dr.content,
+        latency_ms: dr.latency_ms,
+      })),
+      currentRound: conv.debate_rounds.length > 0
+        ? Math.max(...conv.debate_rounds.map((r) => r.round_no))
+        : 0,
+      judge: judge
+        ? { winner: judge.winner_provider ?? "", scores: judge.scores, summary: judge.summary }
+        : null,
+      consensus: consensus
+        ? { final_answer: consensus.final_answer, confidence_score: consensus.confidence_score }
+        : null,
+      errorMessage: null,
+    }),
 
   reset: () => set(initialState),
 }));

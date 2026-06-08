@@ -57,6 +57,10 @@ export const login = (email: string, password: string) =>
 export const getMe = () =>
   api.get<{ id: string; email: string; name: string; plan: string; created_at: string }>("/auth/me");
 
+// Debates list
+export const getConversations = () =>
+  api.get("/debate/");
+
 // Rankings
 export const getRankings = (period: string = "all_time") =>
   api.get(`/rankings/?period=${period}`);
