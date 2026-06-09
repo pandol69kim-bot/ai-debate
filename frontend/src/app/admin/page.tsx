@@ -131,8 +131,12 @@ function UsersTab({
   return (
     <div className="bg-arena-card rounded-xl border border-arena-border overflow-hidden">
       <div className="px-4 py-3 border-b border-arena-border">
-        <h2 className="text-sm font-semibold text-slate-300">전체 회원 목록</h2>
+        <h2 className="text-sm font-semibold text-slate-300">
+          전체 회원 목록
+          <span className="ml-2 text-xs text-slate-500 font-normal">{users.length}명</span>
+        </h2>
       </div>
+
       {loading ? (
         <div className="flex items-center justify-center py-16 text-slate-500 text-sm">불러오는 중...</div>
       ) : users.length === 0 ? (
@@ -142,60 +146,82 @@ function UsersTab({
           {users.map((u) => {
             const isSelf = u.id === currentUserId;
             return (
-              <div key={u.id} className="flex items-center gap-3 px-4 py-3 hover:bg-arena-surface/50 transition-colors">
-                {/* 권한 배지 */}
-                <span className={clsx(
-                  "shrink-0 text-xs px-2 py-0.5 rounded-full font-medium",
-                  u.is_admin ? "bg-arena-accent/20 text-arena-accent" : "bg-slate-700 text-slate-400"
-                )}>
-                  {u.is_admin ? "관리자" : "일반"}
-                </span>
+              <div
+                key={u.id}
+                className="px-4 py-3 hover:bg-arena-surface/50 transition-colors"
+              >
+                {/* 모바일: 2행 카드 / 데스크톱: 1행 */}
+                <div className="flex items-start gap-3">
 
-                {/* 정보 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-sm text-slate-200 truncate">{u.name}</p>
-                    {isSelf && <span className="text-xs text-arena-accent">(나)</span>}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-slate-500 truncate">{u.email}</span>
-                    <span className="text-xs text-slate-600">·</span>
-                    <span className="text-xs text-slate-500">토론 {u.debate_count}건</span>
-                    <span className="text-xs text-slate-600">·</span>
-                    <span className="text-xs text-slate-500">{new Date(u.created_at).toLocaleDateString("ko-KR")} 가입</span>
-                  </div>
-                </div>
+                  {/* 권한 배지 — 항상 표시 */}
+                  <span className={clsx(
+                    "shrink-0 mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium",
+                    u.is_admin
+                      ? "bg-arena-accent/20 text-arena-accent"
+                      : "bg-slate-700 text-slate-400"
+                  )}>
+                    {u.is_admin ? "관리자" : "일반"}
+                  </span>
 
-                {/* 액션 */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => onToggleAdmin(u.id)}
-                    disabled={isSelf}
-                    className={clsx(
-                      "p-1.5 rounded-lg transition-colors",
-                      isSelf
-                        ? "text-slate-700 cursor-not-allowed"
-                        : u.is_admin
-                          ? "text-arena-accent hover:text-slate-400 hover:bg-arena-surface"
-                          : "text-slate-600 hover:text-arena-accent hover:bg-arena-accent/10"
-                    )}
-                    title={isSelf ? "본인 권한 변경 불가" : u.is_admin ? "관리자 해제" : "관리자 지정"}
-                  >
-                    {u.is_admin ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => onDelete({ id: u.id, name: u.name, email: u.email })}
-                    disabled={isSelf}
-                    className={clsx(
-                      "p-1.5 rounded-lg transition-colors",
-                      isSelf
-                        ? "text-slate-700 cursor-not-allowed"
-                        : "text-slate-600 hover:text-red-400 hover:bg-red-900/20"
-                    )}
-                    title={isSelf ? "본인 삭제 불가" : "회원 삭제"}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {/* 정보 영역 */}
+                  <div className="flex-1 min-w-0">
+                    {/* 이름 + (나) */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-medium text-slate-200 truncate">{u.name}</p>
+                      {isSelf && (
+                        <span className="text-xs text-arena-accent shrink-0">(나)</span>
+                      )}
+                    </div>
+
+                    {/* 이메일 — 모바일에서 별도 줄 */}
+                    <p className="text-xs text-slate-500 truncate mt-0.5">{u.email}</p>
+
+                    {/* 토론수 · 가입일 */}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-xs text-slate-500">토론 {u.debate_count}건</span>
+                      <span className="text-xs text-slate-600">·</span>
+                      <span className="text-xs text-slate-500">
+                        {new Date(u.created_at).toLocaleDateString("ko-KR")} 가입
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 액션 버튼 — 우측 상단 고정 */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* 관리자 토글 */}
+                    <button
+                      onClick={() => onToggleAdmin(u.id)}
+                      disabled={isSelf}
+                      className={clsx(
+                        "p-2 rounded-lg transition-colors",
+                        isSelf
+                          ? "text-slate-700 cursor-not-allowed"
+                          : u.is_admin
+                            ? "text-arena-accent hover:text-slate-400 hover:bg-arena-surface"
+                            : "text-slate-600 hover:text-arena-accent hover:bg-arena-accent/10"
+                      )}
+                      title={isSelf ? "본인 권한 변경 불가" : u.is_admin ? "관리자 해제" : "관리자 지정"}
+                    >
+                      {u.is_admin
+                        ? <ShieldOff className="w-4 h-4" />
+                        : <Shield className="w-4 h-4" />}
+                    </button>
+
+                    {/* 삭제 */}
+                    <button
+                      onClick={() => onDelete({ id: u.id, name: u.name, email: u.email })}
+                      disabled={isSelf}
+                      className={clsx(
+                        "p-2 rounded-lg transition-colors",
+                        isSelf
+                          ? "text-slate-700 cursor-not-allowed"
+                          : "text-slate-600 hover:text-red-400 hover:bg-red-900/20"
+                      )}
+                      title={isSelf ? "본인 삭제 불가" : "회원 삭제"}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
