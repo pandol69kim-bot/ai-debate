@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.db.session import engine, Base, AsyncSessionLocal
-from app.api.routes import debate, models, judge, consensus, rankings, auth
+from app.api.routes import debate, models, judge, consensus, rankings, auth, admin
 from app.models import db_models
 
 
@@ -60,6 +60,7 @@ app.include_router(models.router, prefix=settings.API_V1_STR)
 app.include_router(judge.router, prefix=settings.API_V1_STR)
 app.include_router(consensus.router, prefix=settings.API_V1_STR)
 app.include_router(rankings.router, prefix=settings.API_V1_STR)
+app.include_router(admin.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health")

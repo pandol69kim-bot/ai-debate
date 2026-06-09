@@ -1,5 +1,24 @@
 import axios from "axios";
 
+export interface AdminConversationOut {
+  id: string;
+  topic: string;
+  status: string;
+  selected_models: string[];
+  user_email: string | null;
+  round_count: number;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface AdminStatsOut {
+  total_debates: number;
+  done: number;
+  failed: number;
+  running: number;
+  total_users: number;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_BASE = `${API_URL}/api/v1`;
 
@@ -55,7 +74,7 @@ export const login = (email: string, password: string) =>
   api.post<{ access_token: string }>("/auth/login", { email, password });
 
 export const getMe = () =>
-  api.get<{ id: string; email: string; name: string; plan: string; created_at: string }>("/auth/me");
+  api.get<{ id: string; email: string; name: string; plan: string; is_admin: boolean; created_at: string }>("/auth/me");
 
 // Debates list
 export const getConversations = () =>
@@ -70,3 +89,13 @@ export const createDebateStream = (conversationId: string) => {
   const url = `${API_BASE}/debate/${conversationId}/stream`;
   return new EventSource(url);
 };
+
+// Admin
+export const getAdminDebates = () =>
+  api.get<AdminConversationOut[]>("/admin/debates");
+
+export const getAdminStats = () =>
+  api.get<AdminStatsOut>("/admin/stats");
+
+export const deleteAdminDebate = (id: string) =>
+  api.delete(`/admin/debates/${id}`);

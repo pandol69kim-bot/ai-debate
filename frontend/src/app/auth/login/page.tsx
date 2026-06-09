@@ -37,7 +37,7 @@ export default function LoginPage() {
 
       const meRes = await getMe();
       const user = meRes.data;
-      setAuth(access_token, { id: user.id, email: user.email, name: user.name, plan: user.plan });
+      setAuth(access_token, { id: user.id, email: user.email, name: user.name, plan: user.plan, is_admin: user.is_admin ?? false });
 
       router.push("/");
     } catch (err: unknown) {

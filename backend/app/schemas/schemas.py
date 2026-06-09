@@ -22,9 +22,31 @@ class UserOut(BaseModel):
     email: str
     name: str
     plan: str
+    is_admin: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class AdminConversationOut(BaseModel):
+    id: UUID
+    topic: str
+    status: ConversationStatus
+    selected_models: List[str]
+    user_email: Optional[str] = None
+    round_count: int = 0
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class AdminStatsOut(BaseModel):
+    total_debates: int
+    done: int
+    failed: int
+    running: int
+    total_users: int
 
 
 class Token(BaseModel):

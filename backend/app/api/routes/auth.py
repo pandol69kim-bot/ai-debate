@@ -79,6 +79,19 @@ async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
     return Token(access_token=create_token(str(user.id)))
 
 
+async def get_current_user(
+    authorization: Optional[str] = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _get_user_from_token(authorization, db)
+
+
+async def get_admin_user(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
 @router.get("/me", response_model=UserOut)
 async def get_me(
     authorization: Optional[str] = Header(default=None),
