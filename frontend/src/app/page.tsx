@@ -9,6 +9,7 @@ import { useDebateStore } from "@/lib/store/debateStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { PROVIDER_COLORS, type AIModel } from "@/types";
 
+
 const PROVIDER_DESC: Record<string, string> = {
   gpt: "최첨단 추론 & 코딩",
   claude: "심층 분석 & 글쓰기",
