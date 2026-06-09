@@ -51,6 +51,7 @@ export default function RegisterPage() {
         email: user.email,
         name: user.name,
         plan: user.plan,
+        is_admin: false,
       });
 
       router.push("/");
