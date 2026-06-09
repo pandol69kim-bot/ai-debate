@@ -19,6 +19,16 @@ export interface AdminStatsOut {
   total_users: number;
 }
 
+export interface AdminUserOut {
+  id: string;
+  email: string;
+  name: string;
+  plan: string;
+  is_admin: boolean;
+  debate_count: number;
+  created_at: string;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_BASE = `${API_URL}/api/v1`;
 
@@ -99,3 +109,12 @@ export const getAdminStats = () =>
 
 export const deleteAdminDebate = (id: string) =>
   api.delete(`/admin/debates/${id}`);
+
+export const getAdminUsers = () =>
+  api.get<AdminUserOut[]>("/admin/users");
+
+export const toggleAdminUser = (id: string) =>
+  api.patch<AdminUserOut>(`/admin/users/${id}/toggle-admin`);
+
+export const deleteAdminUser = (id: string) =>
+  api.delete(`/admin/users/${id}`);

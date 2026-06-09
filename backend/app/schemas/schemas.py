@@ -49,6 +49,18 @@ class AdminStatsOut(BaseModel):
     total_users: int
 
 
+class AdminUserOut(BaseModel):
+    id: UUID
+    email: str
+    name: str
+    plan: str
+    is_admin: bool
+    debate_count: int = 0
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
