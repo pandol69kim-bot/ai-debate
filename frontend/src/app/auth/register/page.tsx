@@ -9,6 +9,7 @@ import { register } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/store/authStore";
 import { login } from "@/lib/api/client";
 
+
 export default function RegisterPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
