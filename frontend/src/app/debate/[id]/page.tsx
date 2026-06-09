@@ -9,6 +9,7 @@ import { createDebateStream, getConversation, getJudgeResult, getConsensus } fro
 import { DebateTimeline } from "@/components/arena/DebateTimeline";
 import { JudgePanel } from "@/components/arena/JudgePanel";
 import { ConsensusReport } from "@/components/arena/ConsensusReport";
+import { ExportButtons } from "@/components/debate/ExportButtons";
 import type { SSEEvent } from "@/types";
 
 const STATUS_LABELS = {
@@ -122,6 +123,12 @@ export default function DebatePage() {
               <StatusIndicator status={store.status} />
             </div>
           </div>
+          <ExportButtons
+            topic={store.topic}
+            rounds={store.rounds}
+            judge={store.judge}
+            consensus={store.consensus}
+          />
         </div>
       </div>
 
