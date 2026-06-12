@@ -1,8 +1,11 @@
-(venv) PS D:\_웹어플\AI모델토론\ai-debate\backend> uvicorn app.main:app --reload --port 8000
-uvicorn : 'uvicorn' 용어가 cmdlet, 함수, 스크립트 파일 또는 실행할 수 있는 프로그램 이름으로 인식되지 않습
-니다. 이름이 정확한지 확인하고 경로가 포함된 경우 경로가 올바른지 검증한 다음 다시 시도하십시오.
-위치 줄:1 문자:1
-+ uvicorn app.main:app --reload --port 8000
-+ ~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (uvicorn:String) [], CommandNotFoundException
-    + FullyQualifiedErrorId : CommandNotFoundException
+Type error: Argument of type '{ id: string; email: string; name: string; plan: string; }' is not assignable to parameter of type 'AuthUser'.
+  Property 'is_admin' is missing in type '{ id: string; email: string; name: string; plan: string; }' but required in type 'AuthUser'.
+  47 |       // Auto-login after successful registration
+  48 |       const loginRes = await login(form.email, form.password);
+> 49 |       setAuth(loginRes.data.access_token, {
+     |                                           ^
+  50 |         id: user.id,
+  51 |         email: user.email,
+  52 |         name: user.name,
+Static worker exited with code: 1 and signal: null
+Error: Command "npm run build" exited with 1
